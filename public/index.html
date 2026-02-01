@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BetterFlix</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .card { border: 1px solid #ccc; border-radius: 12px; padding: 12px; cursor: pointer; }
+    .card:hover { transform: translateY(-1px); }
+    video { width: 100%; max-height: 70vh; background: #000; border-radius: 12px; }
+    .row { display:flex; gap: 16px; flex-wrap: wrap; }
+    .left { flex: 1 1 420px; }
+    .right { flex: 1 1 420px; }
+  </style>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+
+</head>
+<body>
+  <h1>BetterFlix</h1>
+  <p id="status">Loading…</p>
+
+  <div class="row">
+    <div class="left">
+      <h2>Player</h2>
+      <video id="player" controls playsinline></video>
+      <p id="now"></p>
+    </div>
+
+    <div class="right">
+      <h2>Library</h2>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://localhost:5000";
+    
+    async function load() {
+      const res = await fetch(`${API}/api/movies`);
+      const data = await res.json();
+
+      const status = document.getElementById("status");
+      status.textContent = data.error
+        ? `Error: ${data.error}`
+        : `Loaded ${data.count ?? data.items.length} movies`;
+
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      (data.items || []).forEach(item => {
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML = `<strong>${item.title}</strong><br><small>${item.file}</small>`;
+        el.onclick = () => play(item);
+        grid.appendChild(el);
+      });
+    }
+
+    function play(item) {
+      const player = document.getElementById("player");
+      const now = document.getElementById("now");
+      now.textContent = `Now playing: ${item.title}`;
+      player.src = `${API}/api/stream/${encodeURIComponent(item.file)}`;
+      player.play().catch(()=>{});
+    }
+
+    load();
+  </script>
+  <script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js");
+  }
+</script>
+
+</body>
+</html>
+    
