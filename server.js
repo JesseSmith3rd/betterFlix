@@ -1,5 +1,7 @@
 "use strict";
 
+console.log("✅ /api/movies hit", new Date().toISOString());
+
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -15,6 +17,7 @@ const MOVIES_DIR = process.env.MOVIES_DIR || "D:\\MOVIES\\Action"
 
 // Option B (recommended): use path.join (uncomment and edit)
 //const MOVIES_DIR = path.join("D:", "MOVIES", "Action");
+const POSTER_EXTS = [".jpg", ".jpeg", ".png", ".webp"]
 
 const ALLOWED_EXT = new Set([".mp4", ".m4v", ".mov", ".webm"]);
 
@@ -22,6 +25,20 @@ function safeJoin(base, target) {
   const cleaned = path.normalize(target).replace(/^(\.\.(\/|\\|$))+/, "");
   return path.join(base, cleaned);
 }
+
+app.get("/api/poster/:file", (req, res) => {
+  const videoPath = safeJoin(MOVIES_DIR, req.params.file);
+
+  if (!fs.existsForVideoPath && !fs.existsSync(videoPath)) {
+    return res.status(404).send("Video not found");
+  }
+
+  const posterPath = findPosterForVideo(videoPath);
+  if (!posterPath) return res.status(404).send("Poster not found");
+
+  res.sendFile(posterPath);
+});
+
 
 app.get("/", (req, res) => {
   res.send("✅ BetterFlix is running. Try /api/movies");
@@ -44,6 +61,7 @@ app.get("/api/movies", (req, res) => {
         id: name,
         title: path.parse(name).name,
         file: name,
+         posterUrl: `/api/poster/${encodeURIComponent(name)}`
       })),
     });
   } catch (e) {
@@ -118,8 +136,60 @@ app.get("/api/debug/drives", (req, res) => {
   res.json(results);
 });
 
+function findPosterForVideo(videoPath) {
+  const dir = path.dirname(videoPath);
+  const base = path.parse(videoPath).name;
+
+  // Prefer: "SameName.jpg/png/webp"
+  for (const ext of POSTER_EXTS) {
+    const candidate = path.join(dir, base + ext);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  // Fallback: "movie.jpg/png/webp" in same folder
+  for (const ext of POSTER_EXTS) {
+    const candidate = path.join(dir, "movie" + ext);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
+
+function findPosterForVideo(videoPath) {
+  const dir = path.dirname(videoPath);
+  const base = path.parse(videoPath).name;
+
+  // 1) Prefer poster matching the video filename: "<video name>.jpg/.png/.webp"
+  for (const ext of POSTER_EXTS) {
+    const candidate = path.join(dir, base + ext);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  // 2) Fallback: "movie.jpg/.png/.webp" in the same folder
+  for (const ext of POSTER_EXTS) {
+    const candidate = path.join(dir, "movie" + ext);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
 
 const PORT = 5000;
+
+app.get("/api/poster/:file", (req, res) => {
+  const file = req.params.file;
+  const videoPath = safeJoin(MOVIES_DIR, file);
+
+  if (!fs.existsSync(videoPath)) return res.status(404).send("Video not found");
+
+  const posterPath = findPosterForVideo(videoPath);
+  if (!posterPath) return res.status(404).send("Poster not found");
+
+  res.sendFile(posterPath);
+});
+
 
 app.listen(PORT, () => {
   console.log(`✅ BetterFlix server running at http://localhost:${PORT}`);
